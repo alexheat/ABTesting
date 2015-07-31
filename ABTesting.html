@@ -185,16 +185,13 @@ round(power$N)</code></pre>
 ## 
 ## data:  Conversions
 ## X-squared = 4.0385, df = 1, p-value = 0.04447</code></pre>
-<p>So I should pick “online trading” right? Remember my goal is to find the keyword with the lowest CPC. And “stock trading” has the lowest CPC with 6.59.</p>
-<p>But before I pick “stock trading” I want to do one more test. I want to know if the differences in the CPC are really statistically significant.</p>
+<p>As we expected, the p-value of the t-test is 0.04447, which means we accept that “online trading” has the higher click-through rate.</p>
+<p>So I should pick “online trading” right? Remember my goal is to find the keyword with the lowest CPC. And “stock trading” actually has the lowest CPC with 6.59.</p>
+<p>But before I pick “stock trading” I want to do one more test. I want to know if the differences in the CPC are really statistically significant. I will use another kind of test called the t-test to test the means of the CPC for those 10 days.</p>
 <pre class="r"><code>online.cpc &lt;- abdata[c(1,3,5,7,9,11,13,15,17,19),]$CPC
 stock.CPC &lt;- abdata[c(2,4,6,8,10,12,14,16,18,20),]$CPC
 
-online.cpc</code></pre>
-<pre><code>##  [1] 6.73 7.14 7.57 8.59 9.03 8.52 7.40 8.54 8.56 5.70</code></pre>
-<pre class="r"><code>stock.CPC</code></pre>
-<pre><code>##  [1] 7.45 6.61 5.74 5.50 6.34 7.09 8.00 6.72 6.81 5.65</code></pre>
-<pre class="r"><code>t.test(online.cpc,stock.CPC)</code></pre>
+t.test(online.cpc,stock.CPC)</code></pre>
 <pre><code>## 
 ##  Welch Two Sample t-test
 ## 
@@ -207,6 +204,9 @@ online.cpc</code></pre>
 ## mean of x mean of y 
 ##     7.778     6.591</code></pre>
 <p>The p-value is very low (0.01) and furthermore the confidence interval is 0.30 - 2.07. Meaning that we have at least 95% confidene that the difference between the two keywords is not zero and is between .3 and 2.</p>
+</div>
+<div id="conclusion" class="section level2">
+<h2>Conclusion</h2>
 <p>So I chose “stock trading” as the keyword for my campaign?</p>
 <p>After all that, did I make the right choice? Well, when I calculated the CPC for all of the data above “online trading” actually had the lowest CPC (12.29 vs 13.59 for online trading). So the moral of the story is that conditions are constanstaly changing and you can’t assume that your test results will hold true and you must continualy test and optimize your campains to get the best performance.</p>
 </div>
