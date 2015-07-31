@@ -1,240 +1,199 @@
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 knitr::opts_chunk$set(cache=TRUE)
 
-library("Rcell")
-library("lubridate")
-library("dplyr")
-library(doParallel)
-library("ggplot2")
-library("reshape2")
-library("TTR")
-library("forecast")
-
-registerDoParallel(cores=2)
-
-
-# Multiple plot function
-multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
-  library(grid)
+  library("Rcell")
+  library("lubridate")
+  library("dplyr")
+  library("doParallel")
+  library("ggplot2")
+  library("reshape2")
+  library("TTR")
+  library("pwr")
   
-  # Make a list from the ... arguments and plotlist
-  plots <- c(list(...), plotlist)
-  
-  numPlots = length(plots)
-  
-  # If layout is NULL, then use 'cols' to determine layout
-  if (is.null(layout)) {
-    # Make the panel
-    # ncol: Number of columns of plots
-    # nrow: Number of rows needed, calculated from # of cols
-    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
-                     ncol = cols, nrow = ceiling(numPlots/cols))
-  }
-  
-  if (numPlots==1) {
-    print(plots[[1]])
-    
-  } else {
-    # Set up the page
-    grid.newpage()
-    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
-    
-    # Make each plot, in the correct location
-    for (i in 1:numPlots) {
-      # Get the i,j matrix positions of the regions that contain this subplot
-      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
-      
-      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
-                                      layout.pos.col = matchidx$col))
-    }
-  }
-}
 ```
 
 ---
-title: "Search Term Revenue Analysis"
+title: "Simple AB Testing of Search Keywords in R"
 author: Alex Heaton
 output: html_document
 ---
 # Summary 
-This is an analysis of bids for search ads from the [open-advertising-dataset](https://code.google.com/p/open-advertising-dataset/). The source of this data is not identified but it seems to provide data on click and costs from Google AdWords bids for 500 search terms in the UK from January 2012 to May 2012. The data is broken up into 170 csv files one for each day-and there are about 100,000 individual records after all of the csv files are combined.
+I wanted to practice doing statistical analysis for an AB test in R, but I don't have any actual product or marketing that I am AB testing. I searched and searched for a public data set with AB testing data, but I couldn't find anything. Eventually I found something called the [open-advertising-dataset](https://code.google.com/p/open-advertising-dataset/) with public data on some Google AdWords campaigns. The source of this data is not identified but it seems to provide data on click and costs from Google AdWords bids in the UK. The data is broken up into 170 csv files one for each day-and there are about 100,000 individual records after all of the csv files are combined.
 
-This analysis was done in R and publish as HTML using knitr. I did not include the R code in the report, but if you wish to see the R code it is available [here](https://github.com/alexheat/SearchWords/blob/gh-pages/SearchWords.RMD).
-```{r  echo=FALSE, warning=FALSE, message=FALSE}
-#Read all 178 Files of keywords and merge into one file
-file_list <- list.files("./csv")
-for (file in file_list){
-  # if the merged dataset doesn't exist, create it
-  path = paste(getwd(),"/csv/",file,sep = "")
-  searchDate <- ymd(substr(file, 15,22))
-  if (!exists("dataset")){
-    dataset <- read.csv(path, header=TRUE)
-    dataset$searchDate <- searchDate
-  } else {
-    temp_dataset <-read.csv(path, header=FALSE, skip=1)
-    temp_dataset$searchDate <- searchDate
-    names(temp_dataset) <- names(dataset)
-    dataset<-rbind(dataset, temp_dataset)
-    rm(temp_dataset)
+#Defining the AB Test "online trading" or "stock trading"
+Let's imagine that I am marketing manager for an online brokerage and I want to determine what keyword gives me the best cost per click "**online trading**" or "**stock trading**" (I picked these terms because they have very similar performance so statistical analysis is required to determine which one performs better.)
+
+First let's load the data from the csv files and have a look:
+
+
+```{r warning=FALSE, message=FALSE}
+
+  #Read all Files of keywords and merge into one dataframe
+  file_list <- list.files("./csv")
+  for (file in file_list){
+    path = paste(getwd(),"/csv/",file,sep = "")
+    searchDate <- ymd(substr(file, 19,26)) #parse the filename to get the date
+    
+      # if the merged dataset doesn't exist, create it
+      if (!exists("dataset")){
+        #These files are in a UNIX format that required me to read them this way
+        filetext <- readLines(con <- file(path, encoding = "UCS-2LE"), n =752); close(con)
+        dataset <- read.table(textConnection(filetext), header=TRUE, sep="\t")
+        dataset$searchDate <- searchDate
+    } else {
+        filetext <- readLines(con <- file(path, encoding = "UCS-2LE"), n =752); close(con)
+        temp_dataset <- read.table(textConnection(filetext), header=FALSE, sep="\t", skip = 1)
+        temp_dataset$searchDate <- searchDate
+        names(temp_dataset) <- names(dataset)
+        dataset<-rbind(dataset, temp_dataset)
+        rm(temp_dataset)
+    }
   }
-}
 
 #Remove the collums we don't need and do other cleanup on the data
-dataset$Global.Monthly.Searches <- NULL
-dataset$Estimated.Ad.Position <-  NULL
-names(dataset) <- c("Keyword", "CPC", "Clicks", "Revenue", "MonthlySearches", "SearchDate")
-dataset <-dataset[as.character(dataset$MonthlySearches) != as.character("-"),] 
-dataset$MonthlySearches <- as.numeric(dataset$MonthlySearches)
-dataset$Revenue <- as.numeric(gsub(",", "", dataset$Revenue, fixed = TRUE)) 
-dataset <- dataset[dataset$SearchDate >= "2012-02-01 UTC",] #Start from February because Jan data is not reliable
-dataset <- dataset[dataset$Clicks > 0,] #Remove rows with no clicks
-dataset <-dataset[complete.cases(dataset),] #Remove rows with NAs
-
-#save this clean csv for later
-write.csv(dataset,"keywords.csv")
-#dataset <- read.csv("keywords.csv", stringsAsFactors=FALSE); 
-#dataset$SearchDate <- as.Date(dataset$SearchDate)
-
+dataset <- select(dataset, Keyword,CPC=Average.CPC, Clicks, CTR, Cost, Impressions, searchDate)
+abdata  <- filter(dataset, Keyword=="online trading" | Keyword=="stock trading")
+abdata$CTR <- as.numeric(gsub("%", "", abdata$CTR))
+abdata <- abdata[complete.cases(abdata),]
+print(abdata[1:2,]) #Print one row of sample data
 ```
 
-###Analysis #1 Plot a Picture of the Data
-After combining the csv files into one dataset, I totaled the Revenue and Clicks in each day and averaged the CPC across all the keywords. There are some anomalies in the data but I will ignore them for now. Overall, even though the clicks are increasing, the total Revenue as well as the average CPC are declining.
+###AB Test #1: Test Results from a Single Day
+You can see in the table above that for each Keyword I have the CPC, Clicks, CTR, and Total Impression for each day. On this day, the two keywords had exactly the same CTR, so I cannot tell which one performs better.
+
+For my first AB test I will choose data from a different date which has more variance between the two keywords.
+
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.height=3.5, fig.width=8}
+print(abdata[9:10,])
+```
+
+On this day "online trading" has a slightly higher CTR than "stock trading". But I need to do more analysis to determine if this is a meaningful difference. I will use a Chi-squared Test determine if "online trading" really performs better of if the difference is due to chance.
+
+First I structure the data into a 2x2 table to prepare it for the t-test.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.height=3.5, fig.width=8}
 
-by_date <- group_by(dataset, SearchDate)
-date_summary <- summarize(by_date, CPC=mean(CPC), Revenue=sum(Revenue), Clicks=sum(Clicks))
+online.yes <-round(abdata[9,]$Clicks)
+online.no  <-round(abdata[9,]$Impressions - abdata[1,]$Clicks)
+stock.yes  <-round(abdata[10,]$Clicks)
+stock.no   <-round(abdata[10,]$Impressions - abdata[1,]$Clicks)
 
-Dates <- date_summary$SearchDate
-Revenue <- date_summary$Revenue/1000
-Clicks <- date_summary$Clicks
-CPC <- date_summary$CPC
+Conversions <- as.table(rbind(c(online.yes, online.no ), c(stock.yes, stock.no)))
+dimnames(Conversions) <- list(Keyword = c("a: online trading", "b: stock trading"),
+                              Response = c("Click","NoClick"))
+Conversions #Print the table
+```
 
+Then I execute the Chi-squared test.
 
+```{r, warning=FALSE, message=FALSE, fig.height=3.5, fig.width=8}
+chisq.test(Conversions)
+```
 
+The key figure we need to check is the p-value. In general, if the p-value is less than 0.05 we can trust that there is a meaningful difference between the two groups. And we can reject the NULL hypothesis that the mean CTR of the two terms is the same.
 
-#Near zero values were distorting the chart
-#Chart is easier to read if the data is left out
-date_summary$Revenue[c(18:32,85:87)] <- NA
+In this case, the p-value is 0.845, which is very high. So I can't determine if any keyword is better than the other.
 
-p1 <- ggplot(date_summary, aes(x=SearchDate, y=Revenue/1000)) + 
-  geom_line() + ggtitle("Revenue per Day") +
-  ylab("(Thousands of GBP)") + xlab(NULL) + ylim(from=225/3, to=225) +
-  geom_line(col="navy")
+###AB Test #2: Test All Data
+In order to decrease the p-value I need to test more data, across more than one day. So I am going to test the data from all 170 days.
 
-date_summary$Clicks[c(19:32, 40:43, 85:87)] <- NA
-p2 <- ggplot(date_summary, aes(x=SearchDate, y=Clicks/1000)) + 
-  geom_line() + ggtitle("Clicks per Day") +
-  ylab(NULL) + xlab(NULL) + ylim(from=40/2, to=40) +
-   geom_line(col="navy")
+```{r,  warning=FALSE, message=FALSE, fig.height=3.5, fig.width=8}
 
-date_summary$CPC[c(19:32, 85:87)] <- NA
-p3 <- ggplot(date_summary, aes(x=SearchDate, y=CPC)) + 
-  geom_line() + ggtitle("Average CPC per Day") +
-  ylab(NULL) + xlab(NULL) + geom_line(col="navy")
+#total up all of the data 
+abdata.total <- group_by(abdata, Keyword)
+abdata.total <- summarize(abdata.total, CPC=round(mean(CPC),2),Clicks=sum(Clicks), 
+          Cost=sum(Cost), CTR=mean(CTR), Impressions=sum(Impressions))
+print(abdata.total)
+```
 
-multiplot(p1, p2, p3, cols=3)
+```{r, echo=FALSE,warning=FALSE, message=FALSE, fig.height=3.5, fig.width=8}
 
+#prepare the table
+online.yes <-round(sum(abdata[abdata.total$Keyword=="online trading",]$Clicks))
+online.no  <-round(sum(abdata[abdata.total$Keyword=="online trading",]$Impressions) - sum(abdata.total[abdata.total$Keyword=="online trading",]$Clicks))
+stock.yes  <-round(sum(abdata.total[abdata.total$Keyword=="stock trading",]$Clicks))
+stock.no   <-round(sum(abdata.total[abdata.total$Keyword=="stock trading",]$Impressions) - sum(abdata[abdata.total$Keyword=="online stock",]$Clicks))
+
+Conversions <- as.table(rbind(c(online.yes, online.no ), c(stock.yes, stock.no)))
+dimnames(Conversions) <- list(Keyword = c("a: online trading", "b: stock trading"),
+                              Response = c("Click","NoClick"))
+Conversions #Print the table
+chisq.test(Conversions)
 
 ```
 
-###Analysis #2 Identify Keywords with the Great Increases and Decreases
-I wanted to see if there were any particular keywords that were causing the decline in revenue. I created totals of the revenue generated by each keyword each month. Then I plotted the difference between the February revenue and the May revenue to see what keywords declined or gained the most. 
+This time, with all the data, the p-value is practically zero so I feel confident that "online trading" is the better performing keyword--it has a higher click-through-rate and lower CPC.
+
+So is this a good AB test? Actually no, it would have taken 6 months and 250K British Pounds to collect this much data. 
+
+So the next step is to figure out the minimum number of days (sample size) that I need to run this test and get a significant result. 
+
+###Determining the Best Sample Size
+
+The technique to estimate the optimal, minimal size called statistical power. Statistical power is the probability that a study will accurately detect the difference if there is an effect there to be detected. If statistical power is high, the probability of detecting the difference between the two groups go up. 
+
+There are functions in R that can be used to calculate the optimal, minimum sample size for your experiment. The pwr.chisq.test takes the below inputs to recomend the n/nample size for your experiment. 
+
+- w: This is the size of the differience you are trying to detect. In my case I estimate that the average CTR is 4.0% and I want to any of the words perform .5% better. I enter those values into the ES.w1 funtion and it returns a value of .025. 
+- df: Degrees-of-freedom is calculated as (n of xaxis -1)*(n of yaxis-1). In this case we have a 2x2 table so the df works out to be one.
+- sig.level is .05, consistent with our other p-value tests
+- power, I set at .9, which we want to make sure or chance of detecting the effect is 90%.
+
+
+```{r, warning=FALSE,  fig.height=3.5, fig.width=8}
+
+ES.w1(.04,.045) 
+power <- pwr.chisq.test(w = .025, df = 1, sig.level =.05, power = .9)
+avgperday <- abdata.total$Impressions/170
+round(power$N)
+
+```
+
+Based on those inputs R estimates an N of 16,000, for each keyword. I will need to run the test for 10 days to collect that much data. So I pull in 10 days of data and do the Chi test. 
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.height=3.5, fig.width=8}
 
-by_month <- group_by(dataset, Keyword, Month=months(SearchDate))
-month_summary <- summarize(by_month,  Revenue=sum(Revenue))
-month_summary$Month <- factor(month_summary$Month, levels = c("February", "March", "April", "May"))
-month_summary <- dcast(month_summary, Keyword ~ Month, value.var = "Revenue") #Create one collumn per month
-month_summary$Change <- month_summary$May - month_summary$February
+abdata <- abdata[1:20,]
 
-top10 <- head(arrange(month_summary, desc(Change)),10)
-#Reorder the factor so it plots correctly
-top10$Keyword <- revFactor(factor(top10$Keyword, levels = top10$Keyword))
+#total up all of the data 
+abdata.total <- group_by(abdata, Keyword)
+abdata.total <- summarize(abdata.total, CPC=round(mean(CPC),2),Clicks=sum(Clicks), 
+          Cost=sum(Cost), CTR=mean(CTR), Impressions=sum(Impressions))
+print(abdata.total)
 
-bottom10 <- head(arrange(month_summary, Change),10)
-#Reorder the factor so it plots correctly
-bottom10$Keyword <- revFactor(factor(bottom10$Keyword, levels = bottom10$Keyword))
+#prepare the table
+online.yes <-round(sum(abdata[abdata.total$Keyword=="online trading",]$Clicks))
+online.no  <-round(sum(abdata[abdata.total$Keyword=="online trading",]$Impressions) - sum(abdata.total[abdata.total$Keyword=="online trading",]$Clicks))
+stock.yes  <-round(sum(abdata.total[abdata.total$Keyword=="stock trading",]$Clicks))
+stock.no   <-round(sum(abdata.total[abdata.total$Keyword=="stock trading",]$Impressions) - sum(abdata[abdata.total$Keyword=="online stock",]$Clicks))
 
-p1 <- ggplot(data=bottom10, aes(x=Keyword, y=Change/1000, fill=Change)) +
-  geom_bar(colour="black", stat="identity")  + coord_flip() + 
-  theme(legend.position="none") + 
-  ggtitle("Top 10 Revenue Decrease\nFeb-May") +
-  ylab("(Thousands of GBP)") + xlab(NULL)
-
-p2 <- ggplot(data=top10, aes(x=Keyword, y=Change/1000, fill=Change)) +
-  geom_bar(colour="black", stat="identity")  + coord_flip() + 
-  theme(legend.position="none") + 
-  ggtitle("Top 10 Revenue Increase\nFeb-May") +
-  ylab("(Thousands of GBP)") + xlab(NULL)
-
-multiplot(p1, p2, cols=2)
+Conversions <- as.table(rbind(c(online.yes, online.no ), c(stock.yes, stock.no)))
+dimnames(Conversions) <- list(Keyword = c("a: online trading", "b: stock trading"),
+                              Response = c("Click","NoClick"))
+Conversions #Print the table
+chisq.test(Conversions)
 
 ```
 
-It is clear that a major source of the decline in overall revenue is caused by the decrease is revenue from the netflix.
+As we expected, the p-value of the t-test is 0.04447, which means we accept that "online trading" has the higher click-through rate.
 
-###Analysis #3 Dig into Netflix 
-I filtered the dataset to netflix data only and plotted the revenue, clicks, and CPC over time. Indeed, there is a significant decline in revenue-8X-from February to the end of May. What could be causing this decline? I did my own Web search for "netflix UK 2012" and discovered that Netflix launched in the UK in January 2012. So most likely Netflix was investing in paid search to support their launch and bidding aggressively to make sure that they got the top search result. Even though the clicks on "netflix" are relatively steady, the average bid has decreased from 12 GBP to under 1 GBP-which explains the massive drop in revenue.
+So I should pick "online trading" right? Remember my goal is to find the keyword with the lowest CPC. And "stock trading" actually has the lowest CPC with 6.59.
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.height=3.5, fig.width=8}
-dataset_netflix <- dataset[dataset$Keyword=="netflix",]
-by_date_netflix <- group_by(dataset_netflix, SearchDate)
-date_summary_netflix <- summarize(by_date_netflix, CPC=mean(CPC), Revenue=sum(Revenue), Clicks=sum(Clicks))
-
-#Near zero values were distorting the chart
-#Chart is easier to read if the data is left out
-#date_summary_netflix$Revenue[c(18:32,85:87)] <- NA
-
-pa <- ggplot(date_summary_netflix, aes(x=SearchDate, y=Revenue/1000)) + 
-  geom_line() + ggtitle("Revenue per Day") +
-  ylab("(Thousands of GBP)") + xlab(NULL)  +
-  geom_line(col="navy")
-
-date_summary_netflix$Clicks[c(26:28)] <- NA
-pb <- ggplot(date_summary_netflix, aes(x=SearchDate, y=Clicks/1000)) + 
-  geom_line() + ggtitle("Clicks per Day") + ylim(from=4, to=9) +
-  ylab(NULL) + xlab(NULL) + geom_line(col="navy")
-
-#date_summary_netflix$CPC[c(19:32, 85:87)] <- NA
-pc <- ggplot(date_summary_netflix, aes(x=SearchDate, y=CPC)) + 
-  geom_line() + ggtitle("Average CPC per Day") +
-  ylab(NULL) + xlab(NULL) + geom_line(col="navy")
-
-multiplot(pa, pb, pc, cols=3)
+But before I pick "stock trading" I want to do one more test. I want to know if the differences in the CPC are really statistically significant. I will use another kind of test called the t-test to test the means of the CPC for those 10 days.
 
 
+```{r, warning=FALSE, message=FALSE, fig.height=3.5, fig.width=8}
+
+online.cpc <- abdata[c(1,3,5,7,9,11,13,15,17,19),]$CPC
+stock.CPC <- abdata[c(2,4,6,8,10,12,14,16,18,20),]$CPC
+
+t.test(online.cpc,stock.CPC)
 ```
 
-###Analysis #4 Forecast for June
-Even though there is a logical explanation for the decline in revenue, the sales team will still be expected to meet their sales quota. Though, they must be nervous to know if the revenue will continue to decline.
+The p-value is very low (0.01) and furthermore the confidence interval is 0.30 - 2.07. Meaning that we have at least 95% confidene that the difference between the two keywords is not zero and is between .3 and 2.
 
-Let's create a forecast for the sales team for the June revenue. I performed a time series analysis called ARIMA (Autoregressive Integrated Moving Average) that used the prior 4 months of data to predict the revenue for June.
+##Conclusion 
+So I chose "stock trading" as the keyword for my campaign?
 
-In order to create a more trustable forecast I cleaned up some of the gaps in the data, which is why the chart below does not have the big gaps like the charts above.
-
-```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.height=3.5, fig.width=8}
-
-by_date <- group_by(dataset, SearchDate)
-date_summary <- summarize(by_date, CPC=mean(CPC), Revenue=sum(Revenue), Clicks=sum(Clicks))
-date_summary <- arrange(date_summary, SearchDate)
-
-Revenue <- round(date_summary$Revenue)
-Start <- as.Date(date_summary[1,]$SearchDate)
-
-#Fill in some of the days that had very low sales
-Revenue[18:32] <- round(seq(from=211060, to=179251, length.out =15))
-Revenue[85:87] <- round(seq(from=124112, to=123375, length.out =3))
-RevTS <- ts(Revenue/1000)
-
-RevTS.seriesarima <- arima(RevTS, order=c(1,0,0))
-RevTS.seriesarima2 <- forecast.Arima(RevTS.seriesarima, h=30)
-plot.forecast(RevTS.seriesarima2, main = "Revenue Time Series with June Forcast", xaxt="n") 
-axis(side=1, at=c(0,30,60,90,120), labels = c("February", "March", "April", "May", "June")) 
-abline(h=c(0,30,60,90,120), v=c(0,30,60,90,120), col="gray", lty=3)
-```
-
-The forecast shows that the Revenue should be on a positive trend in June-but there is still risk. The dark blue line is the predicted revenue. The medium blue shaded area is the 80% confidence interval and the light blue area represents the 95% confidence interval. 
-
-But this forecast is more helpful than a simple linear regression line, which would show a continued decline. The ARIMA forecast uses a moving average that weights the most recent data more heavily.
+After all that, did I make the right choice? Well, when I calculated the CPC for all of the data above "online trading" actually had the lowest CPC (12.29 vs 13.59 for online trading). So the moral of the story is that conditions are constanstaly changing and you can't assume that your test results will hold true and you must continualy test and optimize your campains to get the best performance. 

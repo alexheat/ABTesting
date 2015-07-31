@@ -1,0 +1,14 @@
+base
+proto
+plyr
+reshape
+ggplot2
+Rcell
+lubridate
+dplyr
+foreach
+iterators
+doParallel
+reshape2
+TTR
+pwr
