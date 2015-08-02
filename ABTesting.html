@@ -68,7 +68,7 @@ img {
 
 <div id="summary" class="section level1">
 <h1>Summary</h1>
-<p>I wanted to practice doing statistical analysis for an AB test in R, but I don’t have any actual product or marketing that I am AB testing. I searched and searched for a public data set with AB testing data, but I couldn’t find anything. Eventually I found something called the <a href="https://code.google.com/p/open-advertising-dataset/">open-advertising-dataset</a> with public data on some Google AdWords campaigns. The source of this data is not identified but it seems to provide data on click and costs from Google AdWords bids in the UK. The data is broken up into 170 csv files one for each day-and there are about 100,000 individual records after all of the csv files are combined.</p>
+<p>This is an AB testing of search keywords <a href="https://code.google.com/p/open-advertising-dataset/">open-advertising-dataset</a>. The source of this data is not identified but it seems to provide data on click and costs from Google AdWords bids in the UK. The data is broken up into 170 csv files one for each day-and there are about 100,000 individual records after all of the csv files are combined.</p>
 </div>
 <div id="defining-the-ab-test-online-trading-or-stock-trading" class="section level1">
 <h1>Defining the AB Test “online trading” or “stock trading”</h1>
@@ -107,8 +107,7 @@ print(abdata[1:2,]) #Print one row of sample data</code></pre>
 ## 2  stock trading 7.45 105.15 4.2 783.12        2486 2012-07-25</code></pre>
 <div id="ab-test-1-test-results-from-a-single-day" class="section level3">
 <h3>AB Test #1: Test Results from a Single Day</h3>
-<p>You can see in the table above that for each Keyword I have the CPC, Clicks, CTR, and Total Impression for each day. On this day, the two keywords had exactly the same CTR, so I cannot tell which one performs better.</p>
-<p>For my first AB test I will choose data from a different date which has more variance between the two keywords.</p>
+<p>You can see in the table above that for each Keyword I have the CPC, Clicks, CTR, and Total Impression for each day. On this day, the two keywords had exactly the same CTR, so I cannot tell which one performs better. For my first AB test I will choose data from a different date which has more variance between the two keywords.</p>
 <pre><code>##           Keyword  CPC Clicks CTR   Cost Impressions searchDate
 ## 9  online trading 9.03  90.46 5.5 816.84        1632 2012-07-30
 ## 10  stock trading 6.34 106.74 5.4 677.19        1990 2012-07-30</code></pre>
@@ -118,8 +117,6 @@ print(abdata[1:2,]) #Print one row of sample data</code></pre>
 ## Keyword             Click NoClick
 ##   a: online trading    90    1512
 ##   b: stock trading    107    1870</code></pre>
-<p>Then I execute the Chi-squared test.</p>
-<pre class="r"><code>chisq.test(Conversions)</code></pre>
 <pre><code>## 
 ##  Pearson's Chi-squared test with Yates' continuity correction
 ## 
@@ -156,7 +153,7 @@ print(abdata.total)</code></pre>
 </div>
 <div id="determining-the-best-sample-size" class="section level3">
 <h3>Determining the Best Sample Size</h3>
-<p>The technique to estimate the optimal, minimal size called statistical power. Statistical power is the probability that a study will accurately detect the difference if there is an effect there to be detected. If statistical power is high, the probability of detecting the difference between the two groups go up.</p>
+<p>The technique to estimate the optimal, minimal size is called statistical power. Statistical power is the probability that a study will accurately detect the difference if there is an effect there to be detected. If statistical power is high, the probability of detecting the difference between the two groups go up.</p>
 <p>There are functions in R that can be used to calculate the optimal, minimum sample size for your experiment. The pwr.chisq.test takes the below inputs to recomend the n/nample size for your experiment.</p>
 <ul>
 <li>w: This is the size of the differience you are trying to detect. In my case I estimate that the average CTR is 4.0% and I want to any of the words perform .5% better. I enter those values into the ES.w1 funtion and it returns a value of .025.</li>
@@ -164,13 +161,11 @@ print(abdata.total)</code></pre>
 <li>sig.level is .05, consistent with our other p-value tests</li>
 <li>power, I set at .9, which we want to make sure or chance of detecting the effect is 90%.</li>
 </ul>
-<pre class="r"><code>ES.w1(.04,.045) </code></pre>
-<pre><code>## [1] 0.025</code></pre>
-<pre class="r"><code>power &lt;- pwr.chisq.test(w = .025, df = 1, sig.level =.05, power = .9)
+<pre class="r"><code>W &lt;- ES.w1(.04,.045) #output = 0.025
+power &lt;- pwr.chisq.test(w = W, df = 1, sig.level =.05, power = .9)
 avgperday &lt;- abdata.total$Impressions/170
-round(power$N)</code></pre>
-<pre><code>## [1] 16812</code></pre>
-<p>Based on those inputs R estimates an N of 16,000, for each keyword. I will need to run the test for 10 days to collect that much data. So I pull in 10 days of data and do the Chi test.</p>
+N &lt;- round(power$N)</code></pre>
+<p>Based on those inputs R estimates an N of ‘r N’, for each keyword. I will need to run the test for 10 days to collect that much data. So I pull in 10 days of data and do the Chi test.</p>
 <pre><code>## Source: local data frame [2 x 6]
 ## 
 ##          Keyword  CPC  Clicks    Cost  CTR Impressions
@@ -208,7 +203,7 @@ t.test(online.cpc,stock.CPC)</code></pre>
 <div id="conclusion" class="section level2">
 <h2>Conclusion</h2>
 <p>So I chose “stock trading” as the keyword for my campaign?</p>
-<p>After all that, did I make the right choice? Well, when I calculated the CPC for all of the data above “online trading” actually had the lowest CPC (12.29 vs 13.59 for online trading). So the moral of the story is that conditions are constanstaly changing and you can’t assume that your test results will hold true and you must continualy test and optimize your campains to get the best performance.</p>
+<p>After all that, did I make the right choice? Well, when I calculated the CPC for all of the data above “online trading” actually had the lowest CPC (12.29 vs 13.59 for online trading). So the moral of the story is that conditions are constantly changing and you can’t assume that your test results will hold true and you must continualy test and optimize your campains to get the best performance.</p>
 </div>
 </div>
 

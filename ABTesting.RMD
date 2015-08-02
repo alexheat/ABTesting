@@ -18,7 +18,7 @@ author: Alex Heaton
 output: html_document
 ---
 # Summary 
-I wanted to practice doing statistical analysis for an AB test in R, but I don't have any actual product or marketing that I am AB testing. I searched and searched for a public data set with AB testing data, but I couldn't find anything. Eventually I found something called the [open-advertising-dataset](https://code.google.com/p/open-advertising-dataset/) with public data on some Google AdWords campaigns. The source of this data is not identified but it seems to provide data on click and costs from Google AdWords bids in the UK. The data is broken up into 170 csv files one for each day-and there are about 100,000 individual records after all of the csv files are combined.
+This is an AB testing of search keywords [open-advertising-dataset](https://code.google.com/p/open-advertising-dataset/). The source of this data is not identified but it seems to provide data on click and costs from Google AdWords bids in the UK. The data is broken up into 170 csv files one for each day-and there are about 100,000 individual records after all of the csv files are combined.
 
 #Defining the AB Test "online trading" or "stock trading"
 Let's imagine that I am marketing manager for an online brokerage and I want to determine what keyword gives me the best cost per click "**online trading**" or "**stock trading**" (I picked these terms because they have very similar performance so statistical analysis is required to determine which one performs better.)
@@ -59,10 +59,7 @@ print(abdata[1:2,]) #Print one row of sample data
 ```
 
 ###AB Test #1: Test Results from a Single Day
-You can see in the table above that for each Keyword I have the CPC, Clicks, CTR, and Total Impression for each day. On this day, the two keywords had exactly the same CTR, so I cannot tell which one performs better.
-
-For my first AB test I will choose data from a different date which has more variance between the two keywords.
-
+You can see in the table above that for each Keyword I have the CPC, Clicks, CTR, and Total Impression for each day. On this day, the two keywords had exactly the same CTR, so I cannot tell which one performs better. For my first AB test I will choose data from a different date which has more variance between the two keywords.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.height=3.5, fig.width=8}
 print(abdata[9:10,])
@@ -85,9 +82,7 @@ dimnames(Conversions) <- list(Keyword = c("a: online trading", "b: stock trading
 Conversions #Print the table
 ```
 
-Then I execute the Chi-squared test.
-
-```{r, warning=FALSE, message=FALSE, fig.height=3.5, fig.width=8}
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.height=3.5, fig.width=8}
 chisq.test(Conversions)
 ```
 
@@ -131,7 +126,7 @@ So the next step is to figure out the minimum number of days (sample size) that 
 
 ###Determining the Best Sample Size
 
-The technique to estimate the optimal, minimal size called statistical power. Statistical power is the probability that a study will accurately detect the difference if there is an effect there to be detected. If statistical power is high, the probability of detecting the difference between the two groups go up. 
+The technique to estimate the optimal, minimal size is called statistical power. Statistical power is the probability that a study will accurately detect the difference if there is an effect there to be detected. If statistical power is high, the probability of detecting the difference between the two groups go up. 
 
 There are functions in R that can be used to calculate the optimal, minimum sample size for your experiment. The pwr.chisq.test takes the below inputs to recomend the n/nample size for your experiment. 
 
@@ -143,14 +138,14 @@ There are functions in R that can be used to calculate the optimal, minimum samp
 
 ```{r, warning=FALSE,  fig.height=3.5, fig.width=8}
 
-ES.w1(.04,.045) 
-power <- pwr.chisq.test(w = .025, df = 1, sig.level =.05, power = .9)
+W <- ES.w1(.04,.045) #output = 0.025
+power <- pwr.chisq.test(w = W, df = 1, sig.level =.05, power = .9)
 avgperday <- abdata.total$Impressions/170
-round(power$N)
+N <- round(power$N)
 
 ```
 
-Based on those inputs R estimates an N of 16,000, for each keyword. I will need to run the test for 10 days to collect that much data. So I pull in 10 days of data and do the Chi test. 
+Based on those inputs R estimates an N of 'r N', for each keyword. I will need to run the test for 10 days to collect that much data. So I pull in 10 days of data and do the Chi test. 
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.height=3.5, fig.width=8}
 
@@ -196,4 +191,4 @@ The p-value is very low (0.01) and furthermore the confidence interval is 0.30 -
 ##Conclusion 
 So I chose "stock trading" as the keyword for my campaign?
 
-After all that, did I make the right choice? Well, when I calculated the CPC for all of the data above "online trading" actually had the lowest CPC (12.29 vs 13.59 for online trading). So the moral of the story is that conditions are constanstaly changing and you can't assume that your test results will hold true and you must continualy test and optimize your campains to get the best performance. 
+After all that, did I make the right choice? Well, when I calculated the CPC for all of the data above "online trading" actually had the lowest CPC (12.29 vs 13.59 for online trading). So the moral of the story is that conditions are constantly changing and you can't assume that your test results will hold true and you must continualy test and optimize your campains to get the best performance. 
