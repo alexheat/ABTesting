@@ -12,3 +12,4 @@ doParallel
 reshape2
 TTR
 pwr
+xtable

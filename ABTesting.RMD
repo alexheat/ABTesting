@@ -9,7 +9,8 @@ knitr::opts_chunk$set(cache=TRUE)
   library("reshape2")
   library("TTR")
   library("pwr")
-  
+  library("xtable")
+
 ```
 
 ---
@@ -189,6 +190,25 @@ t.test(online.cpc,stock.CPC)
 The p-value is very low (0.01) and furthermore the confidence interval is 0.30 - 2.07. Meaning that we have at least 95% confidene that the difference between the two keywords is not zero and is between .3 and 2.
 
 ##Conclusion 
-So I chose "stock trading" as the keyword for my campaign?
+So I chose "stock trading" as the keyword for my campaign.
 
-After all that, did I make the right choice? Well, when I calculated the CPC for all of the data above "online trading" actually had the lowest CPC (12.29 vs 13.59 for online trading). So the moral of the story is that conditions are constantly changing and you can't assume that your test results will hold true and you must continualy test and optimize your campains to get the best performance. 
+After all that, did I make the right choice? Well, when I calculated the CPC for all of the data above "online trading" actually had the lowest CPC (12.29 vs 13.59 for online trading). Let's visual the data to see what is going on. This chart shows the difference between the price of the two keywords. 
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+ online.df <- abdata[abdata$Keyword=="online trading",]
+ stock.df <- abdata[abdata$Keyword=="stock trading",]
+ 
+p <- ggplot(data=stock.df, aes(x=searchDate, y=CPC-online.df$CPC, fill = ifelse(CPC-online.df$CPC <0, "'Stock Trading' is less expensive", "'Stock Trading' is more expensive"))) +
+  geom_bar(stat="identity")  + 
+  theme(legend.justification=c(1,1), legend.position=c(1,1))+
+ggtitle("Difference in Cost Per Click \n Stock Trading vs 'Online' Trading") +
+  guides(fill=guide_legend(title=NULL)) +
+  ylab("(Difference in Cost Per Click)") + xlab(NULL)
+
+```
+![Data plot](compare.png)
+
+For most months Stock Trading is the least expensive keyword. But in September, the price of Stock Trading spikes which is why it is more expensive on average for the whole time period.
+
+Since the relative price of the keywords is constantly changing, the best strategy is not to pi ck one keyword, no matter how much you test it. But rather to continuually monitor and optimize your bids to make sure that you are making the smartest choices.
