@@ -19,7 +19,7 @@ author: Alex Heaton
 output: html_document
 ---
 ### Summary 
-This is an AB testing of search keywords [open-advertising-dataset](https://code.google.com/p/open-advertising-dataset/). The source of this data is not identified but it seems to provide data on click and costs from Google AdWords bids in the UK. The data is broken up into 170 csv files one for each day-and there are about 100,000 individual records after all of the csv files are combined.
+This is an example of AB testing of search keywords from the [open-advertising-dataset](https://code.google.com/p/open-advertising-dataset/). The source of this data is not identified but it seems to provide data on click and costs from Google AdWords bids in the UK. The data is broken up into 170 csv files one for each day-and there are about 100,000 individual records after all of the csv files are combined.
 
 ###Defining the AB Test "online trading" or "stock trading"
 Let's imagine that I am marketing manager for an online brokerage and I want to determine what keyword gives me the best cost per click "**online trading**" or "**stock trading**" (I picked these terms because they have very similar performance so statistical analysis is required to determine which one performs better.)
