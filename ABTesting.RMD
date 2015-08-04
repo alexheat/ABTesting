@@ -18,16 +18,12 @@ title: "Simple AB Testing of Search Keywords in R"
 author: Alex Heaton
 output: html_document
 ---
-# Summary 
-This is an AB testing of search keywords [open-advertising-dataset](https://code.google.com/p/open-advertising-dataset/). The source of this data is not identified but it seems to provide data on click and costs from Google AdWords bids in the UK. The data is broken up into 170 csv files one for each day-and there are about 100,000 individual records after all of the csv files are combined.
+### Summary 
+This is an example of AB testing of search keywords from the [open-advertising-dataset](https://code.google.com/p/open-advertising-dataset/). The source of this data is not identified but it seems to provide data on click and costs from Google AdWords bids in the UK. The data is broken up into 170 csv files one for each day-and there are about 100,000 individual records after all of the csv files are combined.
 
-#Defining the AB Test "online trading" or "stock trading"
-Let's imagine that I am marketing manager for an online brokerage and I want to determine what keyword gives me the best cost per click "**online trading**" or "**stock trading**" (I picked these terms because they have very similar performance so statistical analysis is required to determine which one performs better.)
+Here a visualization of the top 50 keywords in terms of the clicks. The color of the bar indicates the cost per click (CPC) with light blue bars getting 50-60 British Pounds per click. (This chart excludes the #1 search term "free" because it is so high it skews the chart.)
 
-First let's load the data from the csv files and have a look:
-
-
-```{r warning=FALSE, message=FALSE}
+```{r  warning=FALSE, message=FALSE}
 
   #Read all Files of keywords and merge into one dataframe
   file_list <- list.files("./csv")
@@ -56,7 +52,36 @@ dataset <- select(dataset, Keyword,CPC=Average.CPC, Clicks, CTR, Cost, Impressio
 abdata  <- filter(dataset, Keyword=="online trading" | Keyword=="stock trading")
 abdata$CTR <- as.numeric(gsub("%", "", abdata$CTR))
 abdata <- abdata[complete.cases(abdata),]
-print(abdata[1:2,]) #Print one row of sample data
+```
+
+```{r, warning=FALSE, message=FALSE, fig.height=6, fig.width=8}
+
+  totals <- dataset[complete.cases(dataset),]
+  totals <- group_by(totals, Keyword)
+  totals <- summarize(totals, Clicks = sum(Clicks), CPC = mean(CPC), CTR=mean(CTR))
+  totals <- totals[-1,]
+  
+  top50 <- arrange(totals, desc(Clicks)) 
+  top50 <- top50[2:50,]
+  #Reorder the factor so it plots correctly
+  top50 <- arrange(top50, Clicks)
+  top50$Keyword <- revFactor(factor(top50$Keyword, levels = top50$Keyword))
+
+ggplot(data=top50, aes(x=Keyword, y=Clicks/1000, fill=CPC)) +
+  geom_bar(stat="identity") +
+  ggtitle("Top  50 Search Keywords") +
+  ylab("(Thousands of Clicks)") + xlab(NULL) +
+  scale_y_sqrt("Clicks") +
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5, size = 12))
+```
+
+###Defining the AB Test "online trading" or "stock trading"
+Let's imagine that I am marketing manager for an online brokerage and I want to determine what keyword gives me the best cost per click "**online trading**" or "**stock trading**" (I picked these terms because they have very similar performance so statistical analysis is required to determine which one performs better.)
+
+First let's load the data from the csv files and have a look:
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.height=3.5, fig.width=8}
+print(abdata[9:10,])
 ```
 
 ###AB Test #1: Test Results from a Single Day
