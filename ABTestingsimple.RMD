@@ -21,7 +21,7 @@ output: html_document
 ### Summary 
 This is an example of AB testing of search keywords from the [open-advertising-dataset](https://code.google.com/p/open-advertising-dataset/). The source of this data is not identified but it seems to provide data on click and costs from Google AdWords bids in the UK. The data is broken up into 170 csv files one for each day-and there are about 100,000 individual records after all of the csv files are combined.
 
-Here a visualization of the top 50 keywords in terms of the clicks. The color of the bar indicates the cost per click (CPC) with light blue bars getting 50-60 British Pounds per click. (This chart excludes the #1 serach term "free" because it is so high it skews the chart.)
+Here a visualization of the top 50 keywords in terms of the clicks. The color of the bar indicates the cost per click (CPC) with light blue bars getting 50-60 British Pounds per click. (This chart excludes the #1 search term "free" because it is so high it skews the chart.)
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 

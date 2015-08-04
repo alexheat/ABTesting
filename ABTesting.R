@@ -7,6 +7,7 @@
   library("reshape2")
   library("TTR")
   library("pwr")
+  library(xtable)
   
   registerDoParallel(cores=2)
   
@@ -38,34 +39,26 @@
   abdata$CTR <- as.numeric(gsub("%", "", abdata$CTR))
   abdata <- abdata[complete.cases(abdata),]
   
+  totals <- dataset[complete.cases(dataset),]
+  totals <- group_by(totals, Keyword)
+  totals <- summarize(totals, Clicks = sum(Clicks), CPC = mean(CPC), CTR=mean(CTR))
+  totals <- totals[-1,]
+  
+  top50 <- arrange(totals, desc(Clicks)) 
+  top50 <- top20[2:50,]
+  #Reorder the factor so it plots correctly
+  top50 <- arrange(top50, Clicks)
+  top50$Keyword <- revFactor(factor(top50$Keyword, levels = top50$Keyword))
 
- online.df <- abdata[abdata$Keyword=="online trading",]
- stock.df <- abdata[abdata$Keyword=="stock trading",]
- 
- plot(x,y)
- xs <- abdata[abdata$Keyword=="stock trading",]$searchDate
- ys <- abdata[abdata$Keyword=="stock trading",]$Clicks
- 
- 
- #date_summary_netflix$CPC[c(19:32, 85:87)] <- NA
-p1 <- ggplot(online.df, aes(x=searchDate, y=CPC)) + 
-  ggtitle("Average CPC per Day") +
-  ylab(NULL) + xlab(NULL) + 
-  geom_bar() 
+ggplot(data=top50, aes(x=Keyword, y=Clicks/1000, fill=CPC)) +
+  geom_bar(stat="identity") +
+  ggtitle("Top 10 Revenue 2Decrease\nFeb-May") +
+  ylab("(Thousands of GBP)") + xlab(NULL) +
+  scale_y_sqrt("Clicks") +
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5, size = 12))
 
 
-ggplot(data=stock.df, aes(x=searchDate, y=CPC-online.df$CPC, fill = ifelse(CPC-online.df$CPC <0, "'Online Trading' is more expensive", "'Stock Trading' more expensive"))) +
-  geom_bar(stat="identity", ylim=c(-80,20))  + 
-  theme(legend.justification=c(1,1), legend.position=c(1,1))+
-ggtitle("Difference in Cost Per Click \n Stock Trading vs 'Online' Trading") +
-  guides(fill=guide_legend(title=NULL)) +
-  ylab("(Difference in Cost Per Click)") + xlab(NULL)
-
-ggplot(data=stock.df, aes(x=searchDate, y=CPC)) +
-  geom_line(stat="identity")  + stat_smooth(n = 50) +
-  # theme(legend.position="none") + 
-  ggtitle("Top 10 Revenue Decrease\nFeb-May") +
-  ylab("(Thousands of GBP)") + xlab(NULL)
+  
 
 
 
